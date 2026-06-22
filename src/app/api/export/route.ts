@@ -1,71 +1,182 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const logs = await prisma.machine_print_log.findMany({
-      orderBy: { plc_datetime: 'desc' }
-    });
+    const searchParams = request.nextUrl.searchParams;
+    const startDate = searchParams.get('start');
+    const endDate = searchParams.get('end');
+
+    let dateFilter: any = {};
+    let periodLabel = 'All Time';
+
+    if (startDate && endDate) {
+      dateFilter = {
+        plc_datetime: {
+          gte: new Date(startDate),
+          lte: new Date(endDate + 'T23:59:59'),
+        }
+      };
+      const formatDate = (d: string) => d.split('-').reverse().join('/');
+      periodLabel = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    }
+
+    // Fetch data and stats in parallel
+    const [logs, totalCount, autoCount, manualCount, printDoneCount] = await Promise.all([
+      prisma.machine_print_log.findMany({
+        where: dateFilter,
+        orderBy: { plc_datetime: 'desc' },
+      }),
+      prisma.machine_print_log.count({ where: dateFilter }),
+      prisma.machine_print_log.count({ where: { ...dateFilter, mode_auto: true } }),
+      prisma.machine_print_log.count({ where: { ...dateFilter, mode_manual: true } }),
+      prisma.machine_print_log.count({ where: { ...dateFilter, print_done: true } }),
+    ]);
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Machine_Log');
+    workbook.creator = 'Dana Anand Gluing Machine Software';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Machine Report', {
+      views: [{ state: 'frozen', ySplit: 10 }],
+    });
 
-    // Add empty row
-    sheet.addRow([]);
+    // Set column widths
+    sheet.columns = [
+      { key: 'srNo', width: 15 },
+      { key: 'date', width: 20 },
+      { key: 'time', width: 15 },
+      { key: 'operator', width: 25 },
+      { key: 'mode', width: 20 },
+      { key: 'status', width: 18 },
+    ];
 
-    // Add Title Row (starts at column 5 / index 4 after 4 nulls)
-    const titleRow = sheet.addRow([null, null, null, null, 'GLUING MACHINE']);
-    titleRow.font = { bold: true, size: 14 };
+    const darkBlue = '0f172a';
+    const mediumBlue = '1e40af';
+    const lightBlue = 'eff6ff';
+    const borderGray = 'd1d5db';
+    const white = 'ffffff';
+    const lightGray = 'f1f5f9';
 
-    // Add empty row
-    sheet.addRow([]);
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: borderGray } },
+      bottom: { style: 'thin', color: { argb: borderGray } },
+      left: { style: 'thin', color: { argb: borderGray } },
+      right: { style: 'thin', color: { argb: borderGray } },
+    };
 
-    // Add Headers
-    const headerRow = sheet.addRow([
-      null, null, null, null,
-      'Date', 
-      'Time', 
-      'Operator Name', 
-      'Mode of Operation (A/M)', 
-      'Sticker Printing (Done / Not Done)'
-    ]);
-    headerRow.font = { bold: true };
+    // Row 1: Title
+    sheet.mergeCells('A1:F1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = 'DANA ANAND - GLUING MACHINE REPORT';
+    titleCell.font = { bold: true, size: 16, color: { argb: white } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: darkBlue } };
+    sheet.getRow(1).height = 40;
+    // Fill remaining cells in merged row
+    for (let col = 2; col <= 6; col++) {
+      sheet.getRow(1).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: darkBlue } };
+    }
 
-    // Add Data
-    for (const log of logs) {
-      // Create local date string from Date object
-      const pad = (num: number) => num.toString().padStart(2, '0');
+    // Row 2: Empty
+    sheet.getRow(2).height = 5;
+
+    // Row 3: Subtitle/Period
+    sheet.mergeCells('A3:F3');
+    const subtitleCell = sheet.getCell('A3');
+    subtitleCell.value = `Report Period: ${periodLabel}`;
+    subtitleCell.font = { italic: true, size: 11, color: { argb: '475569' } };
+    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+    for (let col = 2; col <= 6; col++) {
+      sheet.getRow(3).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+    }
+    sheet.getRow(3).height = 25;
+
+    // Row 4: Empty separator
+    sheet.getRow(4).height = 10;
+
+    // Row 5: Summary Header
+    sheet.mergeCells('A5:F5');
+    const summaryHeaderCell = sheet.getCell('A5');
+    summaryHeaderCell.value = 'REPORT SUMMARY';
+    summaryHeaderCell.font = { bold: true, size: 12, color: { argb: white } };
+    summaryHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    summaryHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mediumBlue } };
+    for (let col = 2; col <= 6; col++) {
+      sheet.getRow(5).getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mediumBlue } };
+    }
+    sheet.getRow(5).height = 28;
+
+    // Rows 6-8: Summary Data
+    const pct = (v: number) => totalCount > 0 ? `${Math.round((v / totalCount) * 100)}%` : '0%';
+    const summaryData = [
+      ['Total Entries', totalCount, '', 'Auto Mode', autoCount, pct(autoCount)],
+      ['Report Generated', new Date().toLocaleString('en-GB'), '', 'Manual Mode', manualCount, pct(manualCount)],
+      ['Generated By', 'System', '', 'Print Done', printDoneCount, pct(printDoneCount)],
+    ];
+
+    for (let i = 0; i < summaryData.length; i++) {
+      const row = sheet.getRow(6 + i);
+      row.values = summaryData[i] as any;
+      row.getCell(1).font = { bold: true, size: 10 };
+      row.getCell(4).font = { bold: true, size: 10 };
+      for (let col = 1; col <= 6; col++) {
+        row.getCell(col).border = thinBorder;
+        row.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBlue } };
+      }
+    }
+
+    // Row 9: Empty separator
+    sheet.getRow(9).height = 10;
+
+    // Row 10: Data Headers
+    const headerRow = sheet.getRow(10);
+    headerRow.values = ['Sr. No.', 'Date', 'Time', 'Operator Name', 'Mode of Operation', 'Print Status'];
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, size: 11, color: { argb: white } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: darkBlue } };
+      cell.border = thinBorder;
+    });
+
+    // Apply autoFilter
+    sheet.autoFilter = { from: 'A10', to: 'F10' };
+
+    // Data Rows
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    logs.forEach((log, index) => {
       const d = log.plc_datetime;
       const dateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
       const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-      const modeStr = log.mode_auto ? 'A' : (log.mode_manual ? 'M' : 'Unknown');
+      const modeStr = log.mode_auto ? 'Auto' : (log.mode_manual ? 'Manual' : 'Unknown');
       const printStr = log.print_done ? 'Done' : 'Not Done';
 
-      sheet.addRow([
-        null, null, null, null,
-        dateStr,
-        timeStr,
-        log.operator_name,
-        modeStr,
-        printStr
-      ]);
-    }
+      const row = sheet.getRow(11 + index);
+      row.values = [index + 1, dateStr, timeStr, log.operator_name || 'Unknown', modeStr, printStr];
 
-    // Adjust column widths
-    sheet.getColumn(5).width = 15; // Date
-    sheet.getColumn(6).width = 15; // Time
-    sheet.getColumn(7).width = 25; // Operator Name
-    sheet.getColumn(8).width = 25; // Mode
-    sheet.getColumn(9).width = 35; // Sticker Printing
+      const isEven = index % 2 === 0;
+      row.eachCell((cell, colNumber) => {
+        cell.border = thinBorder;
+        cell.alignment = { horizontal: colNumber <= 3 ? 'center' : 'left', vertical: 'middle' };
+        if (isEven) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBlue } };
+        }
+      });
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
+
+    const fileName = startDate && endDate
+      ? `Machine_Report_${startDate}_to_${endDate}.xlsx`
+      : `Machine_Report_Full.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': 'attachment; filename="Machine_Log_Export.xlsx"',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
   } catch (error) {
