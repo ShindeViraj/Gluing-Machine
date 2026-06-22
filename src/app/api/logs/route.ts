@@ -29,16 +29,20 @@ export async function GET(request: NextRequest) {
   ]);
 
   return NextResponse.json({
-    logs: logs.map((log, index) => ({
-      srNo: (page - 1) * limit + index + 1,
-      id: log.id.toString(),
-      date: log.plc_datetime.toLocaleDateString('en-GB'),
-      time: log.plc_datetime.toLocaleTimeString('en-GB'),
-      operatorName: log.operator_name || 'Unknown',
-      modeAuto: log.mode_auto,
-      modeManual: log.mode_manual,
-      printDone: log.print_done,
-    })),
+    logs: logs.map((log, index) => {
+      const d = log.plc_datetime;
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return {
+        srNo: (page - 1) * limit + index + 1,
+        id: log.id.toString(),
+        date: `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`,
+        time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`,
+        operatorName: log.operator_name || 'Unknown',
+        modeAuto: log.mode_auto,
+        modeManual: log.mode_manual,
+        printDone: log.print_done,
+      };
+    }),
     total,
     page,
     totalPages: Math.ceil(total / limit),

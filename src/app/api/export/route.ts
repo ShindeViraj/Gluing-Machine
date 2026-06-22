@@ -148,8 +148,8 @@ export async function GET(request: NextRequest) {
     const pad = (n: number) => n.toString().padStart(2, '0');
     logs.forEach((log, index) => {
       const d = log.plc_datetime;
-      const dateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-      const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      const dateStr = `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+      const timeStr = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
       const modeStr = log.mode_auto ? 'Auto' : (log.mode_manual ? 'Manual' : 'Unknown');
       const printStr = log.print_done ? 'Done' : 'Not Done';
 
