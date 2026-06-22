@@ -48,27 +48,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [totalPrints, autoModePrints, manualModePrints, operatorStats] =
-      await Promise.all([
-        prisma.machine_print_log.count({ where: dateFilter }),
-        prisma.machine_print_log.count({
-          where: { ...dateFilter, mode_auto: true },
-        }),
-        prisma.machine_print_log.count({
-          where: { ...dateFilter, mode_manual: true },
-        }),
-        prisma.machine_print_log.groupBy({
-          by: ['operator_name'],
-          where: dateFilter,
-          _count: { id: true },
-          orderBy: { _count: { id: 'desc' } },
-        }),
-      ]);
+    const [
+      totalPrints,
+      autoModePrints,
+      manualModePrints,
+      printsDone,
+      printsFailed,
+      operatorStats,
+    ] = await Promise.all([
+      prisma.machine_print_log.count({ where: dateFilter }),
+      prisma.machine_print_log.count({
+        where: { ...dateFilter, mode_auto: true },
+      }),
+      prisma.machine_print_log.count({
+        where: { ...dateFilter, mode_manual: true },
+      }),
+      prisma.machine_print_log.count({
+        where: { ...dateFilter, print_done: true },
+      }),
+      prisma.machine_print_log.count({
+        where: { ...dateFilter, print_done: false },
+      }),
+      prisma.machine_print_log.groupBy({
+        by: ['operator_name'],
+        where: dateFilter,
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+      }),
+    ]);
 
     return NextResponse.json({
       totalPrints,
       autoModePrints,
       manualModePrints,
+      printsDone,
+      printsFailed,
       operatorStats: operatorStats.map((s) => ({
         name: s.operator_name || 'Unknown',
         count: s._count.id,

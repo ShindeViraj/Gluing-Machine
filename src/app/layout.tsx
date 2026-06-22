@@ -45,6 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <title>Dana Anand | Gluing Machine Report</title>
+        <link rel="icon" href="/dana_logo.webp" type="image/webp" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* ── Top Title Bar ── */}
         <header

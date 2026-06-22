@@ -9,6 +9,8 @@ import {
   BarChart3,
   PieChart,
   Activity,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 type FilterType = 'today' | 'week' | 'month' | 'all';
@@ -17,6 +19,8 @@ interface DashboardData {
   totalPrints: number;
   autoModePrints: number;
   manualModePrints: number;
+  printsDone: number;
+  printsFailed: number;
   operatorStats: { name: string; count: number }[];
 }
 
@@ -166,36 +170,36 @@ export default function DashboardPage() {
             </>
           ) : (
             <>
-              {/* Total Prints */}
+              {/* Total Cycles */}
               <div className="group rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
                 <div className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-500">
-                  <Printer className="h-4 w-4 text-gray-400 transition-colors group-hover:text-gray-600" />
-                  Total Prints
+                  <Activity className="h-4 w-4 text-gray-400 transition-colors group-hover:text-gray-600" />
+                  Total Cycles
                 </div>
                 <p className="text-3xl font-bold text-gray-900">
                   {data?.totalPrints.toLocaleString() ?? '—'}
                 </p>
               </div>
 
-              {/* Auto Mode */}
-              <div className="group rounded-xl border border-blue-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                <div className="mb-1 flex items-center gap-2 text-sm font-medium text-blue-600">
-                  <Cpu className="h-4 w-4 text-blue-400 transition-colors group-hover:text-blue-600" />
-                  Auto Mode
+              {/* Prints Done */}
+              <div className="group rounded-xl border border-emerald-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+                <div className="mb-1 flex items-center gap-2 text-sm font-medium text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 transition-colors group-hover:text-emerald-600" />
+                  Prints Done
                 </div>
-                <p className="text-3xl font-bold text-blue-700">
-                  {data?.autoModePrints.toLocaleString() ?? '—'}
+                <p className="text-3xl font-bold text-emerald-700">
+                  {data?.printsDone.toLocaleString() ?? '—'}
                 </p>
               </div>
 
-              {/* Manual Mode */}
-              <div className="group rounded-xl border border-amber-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-                <div className="mb-1 flex items-center gap-2 text-sm font-medium text-amber-600">
-                  <Hand className="h-4 w-4 text-amber-400 transition-colors group-hover:text-amber-600" />
-                  Manual Mode
+              {/* Prints Failed */}
+              <div className="group rounded-xl border border-red-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+                <div className="mb-1 flex items-center gap-2 text-sm font-medium text-red-600">
+                  <XCircle className="h-4 w-4 text-red-400 transition-colors group-hover:text-red-600" />
+                  Prints Failed
                 </div>
-                <p className="text-3xl font-bold text-amber-700">
-                  {data?.manualModePrints.toLocaleString() ?? '—'}
+                <p className="text-3xl font-bold text-red-700">
+                  {data?.printsFailed.toLocaleString() ?? '—'}
                 </p>
               </div>
             </>
