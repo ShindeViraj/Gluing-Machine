@@ -1,3 +1,6 @@
 @echo off
 cd /d "%~dp0"
-npm run dev
+echo Building application for production...
+call npm run build
+echo Starting production server...
+npm run start
